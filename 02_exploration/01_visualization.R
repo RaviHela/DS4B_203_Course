@@ -27,12 +27,12 @@ mailchimp_users_tbl
 
 # DATA PREPARATION ---- 
 
-google_analytics_long_tbl <- google_analytics_tbl %>%
+google_analytics_long_hour_tbl <- google_analytics_tbl %>%
   mutate(date = ymd_h(dateHour)) %>%
   select(-dateHour) %>%
   pivot_longer(cols = pageViews:sessions)
 
-google_analytics_long_tbl 
+google_analytics_long_hour_tbl 
 
 subscribers_day_tbl <- mailchimp_users_tbl %>%
   summarise_by_time(.date_var = optin_time,
@@ -48,21 +48,62 @@ subscribers_day_tbl
 
 ?plot_time_series
 
+
+
 # * Basics ----
+subscribers_day_tbl %>%
+  plot_time_series(.date_var = optin_time, .value = optins)
+
 
 
 # * Facets/Groups ----
-
+google_analytics_long_hour_tbl %>%
+  #group_by(name) %>%
+  plot_time_series(
+    .date_var = date,
+    .value = value,
+    .color_var = name,
+    .facet_vars = name
+  )
 
 # * Mutations/Transformations ----
 
+subscribers_day_tbl %>%
+  plot_time_series(.date_var = optin_time,
+                   .value = log(optins + 1))
+
+google_analytics_long_hour_tbl %>%
+  #group_by(name) %>%
+  plot_time_series(
+    .date_var = date,
+    .value = log(value + 1),
+    .color_var = name,
+    .facet_vars = name
+  )
 
 # * Smoother Adjustment
 
+subscribers_day_tbl %>%
+  plot_time_series(optin_time, log(optins + 1), .smooth = FALSE)
+
+subscribers_day_tbl %>%
+  plot_time_series(optin_time, log(optins + 1), 
+                   # .smooth_span = 0.75, 
+                   .smooth_period = "50 days",
+                   .smooth_degree = 2,
+                   .smooth_message = TRUE)
+
+google_analytics_long_hour_tbl %>%
+  group_by(name) %>%
+  plot_time_series(date, log(value + 1), .smooth_period = "7 days")
 
 # * Static ggplot ----
 
+subscribers_day_tbl %>%
+  plot_time_series(optin_time, optins, .plotly_slider = TRUE)
 
+subscribers_day_tbl %>%
+  plot_time_series(optin_time, optins, .interactive = FALSE)
 
 
 
@@ -73,11 +114,28 @@ subscribers_day_tbl
 # * ACF / PACF -----
 # - Date Features & Fourier Series 
 
-
+subscribers_day_tbl %>%
+  plot_acf_diagnostics(optin_time, log(optins + 1), .lags = "1 year")
 
 # * CCF ----
 # - Lagged External Regressors
 
+google_analytics_day_tbl <- google_analytics_long_hour_tbl %>%
+  pivot_wider(names_from = name, values_from = value) %>%
+  summarise_by_time(date, .by = "day", across(pageViews:sessions, .fns = sum))
+
+
+subscribers_ga_day_tbl <- subscribers_day_tbl %>%
+  left_join(google_analytics_day_tbl,
+            by = c("optin_time" = "date"))
+  
+subscribers_ga_day_tbl %>%
+  drop_na() %>%
+  plot_acf_diagnostics(optin_time, optins, 
+                       .ccf_vars = pageViews:sessions,
+                       .show_ccf_vars_only = TRUE,
+                       .facet_ncol = 3)
+  
 
 
 
