@@ -146,7 +146,15 @@ subscribers_ga_day_tbl %>%
 
 ?plot_seasonal_diagnostics
 
+google_analytics_long_hour_tbl %>%
+  group_by(name) %>%
+  plot_seasonal_diagnostics(.date_var = date,
+                            .value = log(value + 1),
+                            .feature_set = "hour",
+                            .geom = "violin")
 
+
+  
 
 
 
@@ -155,6 +163,24 @@ subscribers_ga_day_tbl %>%
 
 ?plot_anomaly_diagnostics
 
+subscribers_day_tbl %>%
+  plot_anomaly_diagnostics(.date_var = optin_time,
+                           .value = optins,
+                           .alpha = .01, 
+                           .max_anomalies = .01)
+  
+
+subscribers_day_tbl %>%
+  tk_anomaly_diagnostics(.date_var = optin_time,
+                           .value = optins,
+                           .alpha = .01, 
+                           .max_anomalies = .01)
+
+#  Group Anamolies
+
+google_analytics_long_hour_tbl %>%
+  group_by(name) %>%
+  plot_anomaly_diagnostics(date, value)
 
 
 
@@ -164,7 +190,17 @@ subscribers_ga_day_tbl %>%
 
 ?plot_stl_diagnostics
 
+subscribers_day_tbl %>%
+  plot_stl_diagnostics(optin_time, log(optins + 1), 
+                       .frequency = "1 month", 
+                       .trend = "1 year")
 
+#Grouped
+
+google_analytics_long_hour_tbl %>%
+  group_by(name) %>%
+  plot_stl_diagnostics(date, log(value + 1))
+  
 
 
 
@@ -173,6 +209,31 @@ subscribers_ga_day_tbl %>%
 
 ?plot_time_series_regression
 
+
+subscribers_day_tbl %>%
+  plot_time_series_regression(
+    .date_var = optin_time,
+    log(optins + 1) ~ as.numeric(optin_time) +
+      wday(optin_time, label = TRUE) +
+    month(optin_time, label = TRUE),
+    .show_summary = TRUE
+  )
+
+#Group
+
+google_analytics_long_hour_tbl %>%
+  #group_by(name) %>%
+  filter(name == "pageViews") %>%
+  plot_time_series_regression(
+    .date_var = date,
+    log(value + 1) ~ as.numeric(date) +
+      as.factor(hour(date)) +
+      wday(date, label = TRUE) +
+      month(date, label = TRUE),
+    .show_summary = TRUE
+  )
+  
+  
 
 
 
