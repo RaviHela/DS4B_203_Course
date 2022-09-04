@@ -176,7 +176,7 @@ subscribers_day_tbl %>%
                            .alpha = .01, 
                            .max_anomalies = .01)
 
-#  Group Anamolies
+#  Group Anomalies
 
 google_analytics_long_hour_tbl %>%
   group_by(name) %>%
