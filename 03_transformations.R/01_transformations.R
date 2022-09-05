@@ -148,23 +148,66 @@ google_analytics_summary_long_tbl %>%
 #   - A rolling average forecast is usually sub-optimal (good opportunity for you!)
 
 # * Sliding / Rolling Functions ----
-
+google_analytics_summary_long_tbl %>%
+  mutate(value_roll = slidify_vec(.x = value, 
+                                  .f = mean, 
+                                  .period = 24 * 7, 
+                                  .align = "center")) %>%
+  pivot_longer(contains("value"), names_repair = "unique") %>%
+  rename(names = `name...2`, names_2 = `name...3`) %>%
+  group_by(names) %>%
+  plot_time_series(.date_var = date, .value = value, .color_var = names_2, .smooth = FALSE)
 
 
 # * LOESS smoother ----
-
+google_analytics_summary_long_tbl %>%
+  mutate(value_roll = smooth_vec(x = value, 
+                                period = 24 * 7,
+                                #span = 0.75,
+                                degree = 0)) %>%
+  pivot_longer(contains("value"), names_repair = "unique") %>%
+  rename(names = `name...2`, names_2 = `name...3`) %>%
+  group_by(names) %>%
+  plot_time_series(.date_var = date, .value = value, .color_var = names_2, .smooth = FALSE)
 
 
 # * Rolling Correlations ----
 # - Identify changing relationships
 
 
+cor(1:10, seq(0, 20, length.out = 10))
+
+rolling_cor_24_7 <-
+  slidify(
+    .f = ~ cor(.x, .y, use = "pairwise.complete.obs"),
+    .period = 24 * 7,
+    .align = "center",
+    .partial = FALSE
+  )
+
+google_analytics_summary_tbl %>%
+  mutate(rolling_cor_pageviews_organic = rolling_cor_24_7(pageViews, organicSearches)) %>% 
+  mutate(dateHour = ymd_h(dateHour)) %>%
+  select(-sessions) %>%
+  pivot_longer((-dateHour)) %>%
+  group_by(name) %>%
+  plot_time_series(dateHour, value)
+  
 
 
 # * Problem with Moving Avg Forecasting ----
-
-
-
+transactions_tbl %>%
+  mutate(mavg_8  = slidify_vec(
+    revenue,
+    .f = ~mean(.x, na.rm = TRUE),
+    .period = 8,
+    .align = "right"
+  )) %>% 
+  bind_rows(future_frame(., .length_out = 8)) %>%
+  fill(mavg_8, .direction = "down") %>%
+  pivot_longer(-purchased_at) %>%
+  #group_by(name) %>%
+  plot_time_series(purchased_at, value,name,  .smooth = FALSE)
 
 
 # 3.0 RANGE REDUCTION ----
