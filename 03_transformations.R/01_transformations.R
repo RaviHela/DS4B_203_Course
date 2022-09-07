@@ -216,12 +216,18 @@ transactions_tbl %>%
 
 # * Normalize to Range (0,1) ----
 # - INFO: recipes::step_range() is actually normalization to range(0,1)
-
+google_analytics_summary_long_tbl %>%
+  mutate(value = normalize_vec(value)) %>%
+  ungroup() %>%
+  plot_time_series(date, value, name, .smooth = FALSE)
 
 
 # * Standardize to Mean = 0 (Center), SD = 1 (Scaling) -----
 # - INFO: recipes::step_normalize() is actually standardization to mean = 0, sd = 1
-
+google_analytics_summary_long_tbl %>%
+  mutate(value = standardize_vec(value)) %>%
+  ungroup() %>%
+  plot_time_series(date,value, name, .smooth = FALSE)
 
 
 
@@ -232,18 +238,45 @@ transactions_tbl %>%
 # - usually there is a reason for large values
 
 # * Imputation ----
-
+subscribers_daily_tbl %>%
+  mutate(optins_na = ifelse(optins == 0, NA, optins)) %>%
+  mutate(optins_imputed = ts_impute_vec(optins_na, period = 7)) %>%
+  pivot_longer(-optin_time) %>%
+  
+  plot_time_series(optin_time, log1p(value), name, .smooth = FALSE)
 
 # * Cleaning (Imputation + Outlier Removal) ----
+subscribers_daily_tbl %>%
+  mutate(optins_na = ifelse(optins == 0, NA, optins)) %>%
+  mutate(optins_cleaned = ts_clean_vec(optins_na, period = 7)) %>%
+  pivot_longer(-optin_time) %>%
+  
+  plot_time_series(optin_time, value, name, .smooth = FALSE)
 
 
+subscribers_cleaned_daily_tbl <- subscribers_daily_tbl %>%
+  mutate(optins_na = ifelse(optins == 0, NA, optins)) %>%
+  mutate(optins_cleaned = ts_clean_vec(optins_na, period = 7))
 
 # Outlier Effect - Before Cleaning
+subscribers_cleaned_daily_tbl %>%
+  plot_time_series_regression(optin_time,
+                              .formula = optins ~ as.numeric(optin_time) +
+                                wday(optin_time, label = T) + 
+                                month(optin_time, label = T), 
+                              .show_summary = TRUE)
+  
 
 
 
 # Outlier Effect - After Cleaning
 
+subscribers_cleaned_daily_tbl %>%
+  plot_time_series_regression(optin_time,
+                              .formula = optins_cleaned ~ as.numeric(optin_time) +
+                                wday(optin_time, label = T) + 
+                                month(optin_time, label = T), 
+                              .show_summary = TRUE)
 
 
 
@@ -256,6 +289,21 @@ transactions_tbl %>%
 # - Often used for feature engineering
 # - Autocorrelation
 # - 
+subscribers_daily_tbl %>%
+  mutate(optins_lag_1 = lag_vec(optins, lag = 2))
+
+subscribers_daily_tbl %>%
+  plot_acf_diagnostics(optin_time, log1p(optins))
+
+subscribers_daily_tbl %>%
+  tk_augment_lags(.value = optins, .lags= c(1, 2, 6, 14)) %>%
+  drop_na %>%
+  plot_time_series_regression(.date_var =  optin_time, 
+                              .formula = log1p(optins) ~ log1p(optins_lag1) + 
+                                log1p(optins_lag2) + 
+                                log1p(optins_lag6) + 
+                                log1p(optins_lag14), 
+                              .show_summary = T)
 
 
 
@@ -267,16 +315,32 @@ transactions_tbl %>%
 #   - Total subs to change by day
 
 # Cumulative Sum & Differencing
-
+subscribers_daily_tbl %>%
+  mutate(total_optins = cumsum(optins)) %>%
+  
+  mutate(optins_diff_1 = diff_vec(total_optins,lag = 1,  difference = 1)) %>% 
+  mutate(optins_diff_2 = diff_vec(total_optins, lag = 1, difference = 2)) %>%
+  
+  pivot_longer(-optin_time) %>%
+  group_by(name) %>%
+  
+  plot_time_series(optin_time, value, name, .smooth = FALSE)
 
 
 # Comparing Differences 
-
+google_analytics_summary_diff_tbl <- google_analytics_summary_tbl %>%
+  mutate(across(pageViews:sessions, .fns = diff_vec)) 
+ 
+  google_analytics_summary_diff_tbl %>%
+  mutate(dateHour = ymd_h(dateHour)) %>%
+  
+  pivot_longer(-dateHour) %>%
+    plot_time_series(dateHour, value, name, .smooth = FALSE)
 
 
 # Inversion 
-
-
+google_analytics_summary_diff_tbl %>%
+  mutate(pageViews = diff_inv_vec(pageViews, initial_values = 79))
 
 
 # 6.0 FOURIER SERIES ----
