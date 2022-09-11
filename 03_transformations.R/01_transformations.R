@@ -349,8 +349,26 @@ google_analytics_summary_diff_tbl %>%
 
 # * Vector (Single Fourier) ----
 
+subscribers_daily_tbl %>%
+  #why 14, see ACF and PCF plot
+  mutate(sin14_k1 = fourier_vec(optin_time, period = 14, K = 1, type = "sin")) %>%
+  mutate(cos14_k1 = fourier_vec(optin_time, period = 14, K = 1, type = "cos")) %>%
+  
+  select(-optins) %>%
+  pivot_longer(matches("(cos)|(sin)")) %>%
+  plot_time_series(optin_time, value, name, .smooth = FALSE)
+  
+
 
 # * Augmenting (Multiple Fourier Series) ----
+subscribers_daily_tbl %>%
+  tk_augment_fourier(optin_time, .periods = c(14, 30, 90, 365), .K = 2) %>%
+  
+  plot_time_series_regression(
+    .date_var = optin_time,
+    .formula = log1p(optins) ~ as.numeric(optin_time) + . -optin_time,
+    .show_summary = TRUE
+  )
 
 
 
