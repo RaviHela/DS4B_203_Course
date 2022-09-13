@@ -377,21 +377,76 @@ subscribers_daily_tbl %>%
 # - Showcase: log_interval_vec()
 # - Transformation used to confine forecasts to a max/min interval
 
+value_transformed_vector <- log_interval_vec(1:10, limit_lower = 0, limit_upper = 15)
+
+value_transformed_vector %>% log_interval_inv_vec(limit_lower = 0, limit_upper = 15)
+
+new_value_transformed_vector <- c(value_transformed_vector, c(0.75, 1.5,2.0,  10.0))
+
+new_value_transformed_vector %>% log_interval_inv_vec(0, 15) %>% plot()
+
 # * Data ----
+limit_lower <- 0
+limit_upper <- 3650.8
+offset <- 1
 
-
+subscribers_daily_tbl %>%
+  plot_time_series(
+    optin_time,
+    log_interval_vec(
+      optins,
+      limit_lower = limit_lower,
+      limit_upper = limit_upper,
+      offset = 1
+    )
+  )
 
 # * Apply Transformation ----
 
+fourier_periods <- c(6, 14, 30, 90, 365)
+fourier_order <- 5
 
+data_transformed_tbl <- subscribers_daily_tbl %>%
+  mutate(
+    optins_trans = log_interval_vec(
+      optins,
+      limit_lower = limit_lower,
+      limit_upper = limit_upper,
+      offset = offset
+    )
+  ) %>%
+  tk_augment_fourier(optin_time,
+                     .periods = fourier_periods ,
+                     .K = fourier_order) %>%
+  select(-optins)
+  
 
 # * Model ----
 
+model_formula <-
+  as.formula(
+    optins_trans ~ as.numeric(optin_time) + 
+      wday(optin_time, label = TRUE) + 
+      month(optin_time, label = TRUE) + . - optin_time
+  )
+model_formula
 
+data_transformed_tbl %>%
+  plot_time_series_regression(
+    .date_var = optin_time, 
+    .formula = model_formula,
+    .show_summary = TRUE
+  )
+
+model_fit_lm <- lm(formula = model_formula, data = data_transformed_tbl)
+summary(model_fit_lm)
 
 # * Create Future Data ----
-
+future_tbl <- data_transformed_tbl %>%
+  future_frame(.length_out = "6 months") %>%
+  tk_augment_fourier(optin_time, .periods = fourier_periods, .K = fourier_order)
  
+future_tbl
 
 # * Predict ----
 
