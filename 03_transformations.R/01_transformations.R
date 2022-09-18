@@ -449,13 +449,63 @@ future_tbl <- data_transformed_tbl %>%
 future_tbl
 
 # * Predict ----
-
+predictions <- predict(model_fit_lm, newdata = future_tbl) %>% as.vector()
 
 
 # * Combine data ----
+data_transformed_tbl %>%
+  select(optin_time, optins_trans) %>%
+  add_column(type = "actual") %>%
+  
+  bind_rows(
+    future_tbl %>%
+      select(optin_time) %>%
+      mutate(optins_trans = predictions, type = "predictions")
+  ) %>%
+  tail()
+
+conf_interval = 0.95
+residuals <- model_fit_lm$residuals
+alpha <- (1- conf_interval)/2
+
+qnorm(alpha)
+qnorm(1 - alpha)
+
+abs_margin_error <- abs(qnorm(alpha) * sd(residuals))
+
+forecast_tbl <- data_transformed_tbl %>%
+  select(optin_time, optins_trans) %>%
+  add_column(type = "actual") %>%
+  
+  bind_rows(
+    future_tbl %>%
+      select(optin_time) %>%
+      mutate(optins_trans = predictions, type = "predictions") %>%
+      mutate(
+        conf_lo = optins_trans - abs_margin_error,
+        conf_hi = optins_trans + abs_margin_error
+      )
+  ) 
 
 
+  
 
 # * Invert Transformation ----
+forecast_tbl %>%
+  pivot_longer(cols = c(optins_trans, conf_lo, conf_hi)) %>%
+  plot_time_series(optin_time, value, .color_var = name, .smooth = FALSE)
 
+forecast_tbl %>%
+  pivot_longer(cols = c(optins_trans, conf_lo, conf_hi)) %>%
+  plot_time_series(
+    optin_time,
+    log_interval_inv_vec(
+      x = value,
+      limit_lower = limit_lower,
+      limit_upper = limit_upper,
+      offset = offset
+    ),
+    .color_var = name,
+    .smooth = FALSE
+  )
 
