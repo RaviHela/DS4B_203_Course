@@ -3,6 +3,8 @@ title: "Challenge 01: Exploring Revenue vs Page Sessions"
 subtitle: "DS4B 203-R, Time Series Forecasting for Business"
 author: "Business Science"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -61,6 +63,13 @@ google_analytics_by_page_tbl
 
 ```{r}
 # CODE HERE
+transactions_tbl %>%
+  plot_time_series(purchased_at, revenue) 
+
+google_analytics_by_page_tbl %>%
+  plot_time_series(date, pageViews)
+
+
 ```
 
 
@@ -75,6 +84,10 @@ There are 20 pages x 3 Metrics (pageViews, organicSearch, and sessions). To make
 
 ```{r, fig.height=7}
 # CODE HERE
+google_analytics_by_page_tbl %>%
+  group_by(pagePath) %>%
+  plot_time_series(date, sessions,.facet_ncol = 4,  .interactive = FALSE)
+
 ```
 
 # Aggregation to Common Frequency
@@ -89,6 +102,11 @@ We need to aggregate both data sets to get them on a common frequency before we 
 
 ```{r}
 # CODE HERE
+transactions_weekly_tbl <- transactions_tbl %>%
+  summarise_by_time(.date_var = purchased_at,
+                    .by = "week",
+                    revenue = sum(revenue))
+
 ```
 ## Aggregate GA Page Sessions to Weekly
 
@@ -102,6 +120,17 @@ We need to aggregate both data sets to get them on a common frequency before we 
 
 ```{r}
 # CODE HERE
+product_page_sessions_weekly_tbl <- google_analytics_by_page_tbl %>%
+  select(date, pagePath, sessions) %>%
+  group_by(pagePath) %>%
+  summarise_by_time(.date_var = date,
+                    .by = "week",
+                    sessions = sum(sessions)) %>%
+  pivot_wider(names_from = pagePath,
+              values_from = sessions,
+              names_prefix = "sessions_") %>%
+  select(date, contains("/p/"))
+  
 ```
 
 # Join the Datasets
@@ -113,6 +142,12 @@ We need to aggregate both data sets to get them on a common frequency before we 
 
 ```{r}
 # CODE HERE
+transactions_product_page_sessions_weekly_tbl <-
+  transactions_weekly_tbl %>%
+  left_join(product_page_sessions_weekly_tbl,
+            by = c("purchased_at" = "date"))
+
+transactions_product_page_sessions_weekly_tbl %>% glimpse()
 ```
 
 ## Inspect Missing
@@ -121,6 +156,8 @@ We need to aggregate both data sets to get them on a common frequency before we 
 
 ```{r}
 # CODE HERE
+transactions_product_page_sessions_weekly_tbl %>% 
+  plot_missing()
 ```
 
 # Identify Relationships
@@ -140,6 +177,10 @@ transactions_product_page_sessions_weekly_tbl <-
 
 ```{r}
 # CODE HERE
+transactions_product_page_sessions_weekly_tbl %>%
+  pivot_longer(-purchased_at) %>%
+  group_by(name) %>%
+  plot_time_series(purchased_at, value, .facet_ncol = 3)
 ```
 
 ## Remove Columns with Too Much Missing
@@ -152,6 +193,9 @@ Several of the columns have a lot of missing data. These are pages that did not 
 
 ```{r}
 # CODE HERE
+transactions_product_page_subset_tbl <-
+  transactions_product_page_sessions_weekly_tbl %>%
+  select(-ends_with("with-r/"), -contains("bundle"))
 ```
 
 ## Transform Data
@@ -165,6 +209,14 @@ Several of the columns have a lot of missing data. These are pages that did not 
 
 ```{r}
 # CODE HERE
+log_standardized_transactions_product_page_tbl <-
+  transactions_product_page_subset_tbl %>%
+  drop_na() %>%
+  mutate(across(-purchased_at, log1p)) %>%
+  mutate(across(-purchased_at, standardize_vec))
+
+log_standardized_transactions_product_page_tbl
+
 ```
 
 ## Cross Correlations
@@ -180,6 +232,13 @@ Visualize cross correlations between revenue and anything that `contains("sessio
 
 ```{r}
 # CODE HERE
+log_standardized_transactions_product_page_tbl %>%
+  plot_acf_diagnostics(
+    .date_var = purchased_at,
+    .value = revenue,
+    .ccf_vars = contains("session"),
+    .show_ccf_vars_only = TRUE
+  )
 ```
 
 
